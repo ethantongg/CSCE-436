@@ -6,10 +6,44 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Trace the Shape!</h1>
-    <canvas id="traceCanvas" width="400" height="400"></canvas>
-    <p id="feedback"></p>
-    <button id="retryBtn">Retry</button>
+    <div id="captchaContainer">
+        <!-- Top row: title + 4 buttons -->
+        <div id="topRow">
+            <h2>CAPTCHA Security Check</h2>
+            <div id="topButtons">
+                <button id="retryBtn" title="Retry"><img src="icons/retry.svg" alt="Retry"></button>
+                <button id="infoBtn" title="Test Info"><img src="icons/info.svg" alt="Info"></button>
+                <button id="screenReaderBtn" title="Screen Reader"><img src="icons/speaker.svg" alt="Screen Reader"></button>
+                <button id="accessibilityBtn" title="Accessibility"><img src="icons/expand.svg" alt="Accessibility"></button>
+            </div>
+        </div>
+
+        <!-- Info link -->
+        <p id="captchaInfo"><a href="https://en.wikipedia.org/wiki/CAPTCHA" target="_blank">What is this?</a></p>
+
+        <!-- Canvas container -->
+        <div id="canvasWrapper">
+            <p id="canvasPrompt">Trace the image outlined below of a <b id="imageName">Heart</b></p>
+            <canvas id="outlineCanvas" width="400" height="400"></canvas>
+            <canvas id="traceCanvas" width="400" height="400"></canvas>
+        </div>
+
+        <!-- Feedback + buttons -->
+        <div id="controls">
+            <p id="feedback"></p>
+            <p id="attemptsLeft"></p>
+            <button id="continueBtn" style="display:none;">Continue</button>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal">
+        <div class="modalContent">
+            <span class="closeModal">&times;</span>
+            <h3>CAPTCHA Test Info</h3>
+            <p>This test ensures a real human is interacting with the system. Trace the shape accurately to continue.</p>
+        </div>
+    </div>
 
     <script src="script.js"></script>
 </body>
