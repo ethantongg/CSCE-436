@@ -1,123 +1,53 @@
-/* General body */
 body {
     font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background: #222;
+    background-color: #d9d9d9;
     color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
 }
 
-/* Main container */
-#testContainer {
-    background: #000;
-    padding: 20px;
-    border-radius: 12px;
-    max-width: 500px;
-    width: 90%;
-    box-sizing: border-box;
+#captchaContainer {
+    background-color: #000;
+    border-radius: 0px;
 }
 
-/* Top row */
-#topRow {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-#topRow h1 {
-    font-size: 1.2em;
-    margin: 0;
-}
-
-#topButtons button {
-    background: none;
-    border: none;
-    margin-left: 8px;
-    cursor: pointer;
-}
-
-#topButtons img {
-    width: 24px;
-    height: 24px;
-}
-
-/* What is this */
-#whatIsThis {
-    margin: 10px 0;
-    text-align: left;
-}
-
-#whatIsThis a {
-    color: #fff;
-    text-decoration: underline;
-}
-
-/* Canvas container */
-#canvasContainer {
-    background: #b1bbcb;
-    color: white;
-    padding: 10px;
-    border-radius: 8px;
-    text-align: left;
-}
-
-#canvasPrompt {
-    margin: 0 0 10px 0;
-}
-
-/* Stack canvases */
 #canvasWrapper {
-    position: relative;
-    width: 100%;
-    height: auto;
-    max-width: 400px;
-    margin: 0 auto;
+    background-color: #b1bbcb;
+    border-radius: 0px !important;
 }
 
-#outlineCanvas,
-#traceCanvas {
+#canvasWrapper canvas {
+    border: 0px;
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
-    height: auto;
-    border: 1px solid #333;
-}
-
-/* Feedback area */
-#feedbackContainer {
-    margin-top: 15px;
-    text-align: center;
 }
 
 #feedback {
-    font-size: 1em;
-    margin-bottom: 10px;
+    text-align: left;
 }
 
-#continueBtn {
-    font-size: 1em;
-    padding: 8px 16px;
+#attemptsLeft {
+    font-weight: bold;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    padding-top: 100px;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: #fff;
+    color: #000;
+    margin: auto;
+    border-radius: 10px;
+}
+
+.closeModal {
     cursor: pointer;
-}
-
-/* Responsive for small screens */
-@media (max-width: 500px) {
-    #testContainer {
-        width: 95%;
-        padding: 15px;
-    }
-
-    #topButtons img {
-        width: 20px;
-        height: 20px;
-    }
-
-    #canvasWrapper {
-        max-width: 100%;
-    }
 }
