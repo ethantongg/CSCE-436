@@ -183,38 +183,36 @@ submitBtn.addEventListener('click', () => {
     checkTrace();
 });
 
-function checkTrace() {
-    if (path.length < 40) {
-        feedbackAndAttempts.innerText = "Trace too short — keep going.";
-        feedbackAndAttempts.style.backgroundColor = "red";
-        feedbackAndAttempts.style.color = "white";
-        return;
+async function checkTrace() {
+    const feedbackEl = document.getElementById('feedback');
+  
+    if (path.length < 4) {
+      feedbackEl.innerText = 'Try again (too short).';
+      return;
     }
-
-    const accuracy = scoreTraceAccuracy();
-    const jitter = scoreMovementNoise();
-    const coverage = scoreCoverage();
-    console.log("Accuracy:", accuracy, "Jitter:", jitter, "Coverage:", coverage);
-
-    if (coverage < 0.70) { handleFailure("You traced too little of the shape."); return; }
-    if (accuracy < 4 && jitter < 0.0015) { handleFailure("Movement too perfect — suspicious."); return; }
-
-    if (accuracy < 25 && coverage >= 0.70) {
-        feedbackAndAttempts.innerText = "Success!";
-        feedbackAndAttempts.style.backgroundColor = "#aab18b";
-        feedbackAndAttempts.style.color = "white";
-
-        continueBtn.style.display = "inline-block";
-        failRetryBtn.style.display = "none";
-        submitBtn.style.display = "none";
-
-        canDraw = false;
-        retryBtn.style.display = "none";
-        return;
+  
+    // prepare to send: include canvas size so backend can normalize
+    try {
+      const resp = await fetch('http://localhost:3000/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path,
+          canvas: { width: canvas.width, height: canvas.height }
+        })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        feedbackEl.innerText = 'Success!';
+      } else {
+        feedbackEl.innerText = `Try again. Score: ${data.score.toFixed(4)}`;
+      }
+    } catch (err) {
+      console.error(err);
+      feedbackEl.innerText = 'Verification error.';
     }
-
-    handleFailure("Trace did not match the shape. Try again.");
-}
+  }
+  
 
 function handleFailure(message) {
     attemptsLeft--;
