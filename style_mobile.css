@@ -34,6 +34,10 @@ body {
     font-weight: bold;
 }
 
+#traceCanvas {
+    touch-action: none;
+}
+
 .modal {
     display: none;
     position: fixed;
