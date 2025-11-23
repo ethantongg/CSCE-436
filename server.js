@@ -1,50 +1,72 @@
+// server.js
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const { verifyTrace } = require('./verify');
+const { verifyTrace, issueChallenge, consumeChallenge, isChallengeValid } = require('./verify');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Load template trace (array of {x,y} in normalized canvas coords 0..1)
+// Serve frontend static files from project root (index.html, script.js, style.css, assets/)
+app.use(express.static(__dirname));
+
+// Load template (already used by verify.js but keep for sanity)
 const TEMPLATE_PATH = path.join(__dirname, 'template.json');
 if (!fs.existsSync(TEMPLATE_PATH)) {
-  console.error('Missing template.json. Create or copy template.json into project root.');
+  console.error('Missing template.json - please add template.json to project root.');
   process.exit(1);
 }
-const template = JSON.parse(fs.readFileSync(TEMPLATE_PATH, 'utf8'));
 
 // Health
 app.get('/ping', (req, res) => res.json({ ok: true }));
 
+// Issue a challenge: returns challengeId and challenge metadata (rotation, scale)
+app.get('/challenge', (req, res) => {
+  const challenge = issueChallenge();
+  // Only expose randomized parameters (not the template)
+  res.json({
+    challengeId: challenge.id,
+    rotation: challenge.rotation,
+    scale: challenge.scale,
+    expiresAt: challenge.expiresAt
+  });
+});
+
 // Verify endpoint
-// Expect body: { path: [{x,y}, ...], canvas: { width, height } }
-// returns: { success: boolean, score: number, threshold: number, message: string }
+// Expect body: { path: [{x,y,t}, ...], canvas: { width, height }, challengeId }
 app.post('/verify', (req, res) => {
   try {
-    const { path: userPath, canvas } = req.body;
-    if (!Array.isArray(userPath) || userPath.length === 0) {
-      return res.status(400).json({ error: 'Invalid path' });
+    const { path: userPath, canvas, challengeId } = req.body;
+    if (!challengeId || !isChallengeValid(challengeId)) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired challenge' });
+    }
+    if (!Array.isArray(userPath) || userPath.length < 4) {
+      return res.status(400).json({ success: false, message: 'Path missing or too short' });
     }
 
-    // Normalize userPath into 0..1 coordinates relative to provided canvas, if given
-    let normalized = userPath.map(p => {
-      // if canvas provided, use it; otherwise assume already normalized 0..1
-      if (canvas && canvas.width && canvas.height) {
-        return { x: p.x / canvas.width, y: p.y / canvas.height };
+    // Normalize x,y by canvas if given. Keep timestamps intact (t)
+    const normalized = userPath.map(p => {
+      if (canvas && canvas.width && canvas.height && typeof p.x === 'number' && typeof p.y === 'number') {
+        return { x: p.x / canvas.width, y: p.y / canvas.height, t: p.t };
       }
-      return { x: p.x, y: p.y };
+      return { x: p.x, y: p.y, t: p.t };
     });
 
-    // run verification
-    const result = verifyTrace(normalized, template);
+    // Read template from file and pass to verifyTrace (verifyTrace will apply the challenge's rotation/scale)
+    const template = JSON.parse(fs.readFileSync(TEMPLATE_PATH, 'utf8'));
+
+    const result = verifyTrace(normalized, template, challengeId);
+
+    // consume challenge if verification succeeded OR to prevent replay attempts for either fail/pass attempt
+    // For stronger security, you might only consume on success; here we consume on any attempt to avoid replays.
+    consumeChallenge(challengeId);
 
     return res.json(result);
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Internal error' });
+    console.error('Error in /verify:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
