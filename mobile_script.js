@@ -77,9 +77,23 @@ let isNewStroke = true;    // tracks if we need to moveTo start of stroke
 canvas.addEventListener('mousedown', startDraw);
 canvas.addEventListener('mouseup', endDraw);
 canvas.addEventListener('mousemove', draw);
-canvas.addEventListener('touchstart', startDraw);
-canvas.addEventListener('touchend', endDraw);
-canvas.addEventListener('touchmove', draw);
+
+// canvas.addEventListener('touchstart', startDraw);
+// canvas.addEventListener('touchend', endDraw);
+// canvas.addEventListener('touchmove', draw);
+
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    startDraw(e);
+});
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    draw(e);
+});
+canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    endDraw(e);
+});
 
 let strokeWidth = 4;
 let strokeColor = 'white';
