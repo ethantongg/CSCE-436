@@ -27,7 +27,13 @@ async function loadChallenge(newSession = false) {
     try {
         const res = await fetch('/challenge');
         const data = await res.json();
-        currentChallenge = data;
+        currentChallenge = {
+            id: data.challengeId,   // <- map server field
+            rotation: data.rotation,
+            scale: data.scale,
+            expiresAt: data.expiresAt
+        };
+
 
         const outline = new Image();
         outline.src = data.file;
@@ -99,90 +105,72 @@ function draw(e) {
 const submitBtn = document.getElementById('submitBtn');
 
 submitBtn.addEventListener('click', async () => {
-    if (path.length < 12) {
-        feedbackAndAttempts.innerText = "Trace too short — keep going!";
+    if (path.length < 40) {
+        feedbackAndAttempts.innerText = "Trace too short — try to trace the shape fully before submitting.";
         feedbackAndAttempts.style.backgroundColor = "#c57777";
         feedbackAndAttempts.style.color = "white";
         return;
     }
 
-    canDraw = false;
-
     try {
-        const res = await fetch('/verify', {
+        const response = await fetch('/verify-trace', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                path,
-                canvas: { width: canvas.width, height: canvas.height },
-                challengeId: currentChallenge.challengeId
+                userPath: path,
+                challengeId: currentChallenge.id
             })
+
         });
 
-        const result = await res.json();
-
-        if (result.success) {
-            handleSuccess();
-        } else {
-            handleFailure(result.message || "Trace verification failed");
-        }
-
+        const result = await response.json();
+        handleBackendResult(result);
     } catch (err) {
-        console.error('Verification error:', err);
-        feedbackAndAttempts.innerText = "Error verifying trace";
-        feedbackAndAttempts.style.backgroundColor = 'red';
-        feedbackAndAttempts.style.color = 'white';
-        failRetryBtn.style.display = "inline-block";
-        submitBtn.style.display = "none";
-        continueBtn.style.display = "none";
+        console.error(err);
+        feedbackAndAttempts.innerText = "Server error — try again later.";
+        feedbackAndAttempts.style.backgroundColor = "#c57777";
+        feedbackAndAttempts.style.color = "white";
     }
 });
+
 
 // ----------------------------------------------------------
 // 4. Success & failure handling
 // ----------------------------------------------------------
-function handleSuccess() {
-    feedbackAndAttempts.innerText = "Success!";
-    feedbackAndAttempts.style.backgroundColor = "green";
-    feedbackAndAttempts.style.color = "white";
+function handleBackendResult(result) {
+    console.log('Backend verification result:', result);
 
-    continueBtn.style.display = "inline-block";
-    failRetryBtn.style.display = "none";
-    submitBtn.style.display = "none";
-    retryBtn.style.display = "none";
-
-    canDraw = false;
-}
-
-function handleFailure(message) {
-    attemptsLeft--;
-
-    feedbackAndAttempts.innerText = attemptsLeft > 0
-        ? `${message} | Attempts left: ${attemptsLeft}`
-        : "No attempts left. Test failed.";
-    feedbackAndAttempts.style.backgroundColor = "#c57777";
-    feedbackAndAttempts.style.color = "white";
-
-    canDraw = attemptsLeft > 0;
-
-    if (attemptsLeft > 0) {
-        submitBtn.style.display = "none";
-        failRetryBtn.style.display = "inline-block";
-        failRetryBtn.innerText = "RETRY";
-        continueBtn.style.display = "none";
-        retryBtn.style.display = "inline-block";
-    } else {
-        submitBtn.style.display = "none";
+    if (result.success) {
+        feedbackAndAttempts.innerText = "Success!";
+        feedbackAndAttempts.style.backgroundColor = "#aab18b";
+        feedbackAndAttempts.style.color = "white";
+        continueBtn.style.display = "inline-block";
         failRetryBtn.style.display = "none";
+        submitBtn.style.display = "none";
+        retryBtn.style.display = "none";
+        canDraw = false;
+    } else {
+        attemptsLeft--;
+        const msg = attemptsLeft > 0
+            ? `${result.message} | Attempts left: ${attemptsLeft}`
+            : "No attempts left. Test failed.";
+
+        feedbackAndAttempts.innerText = msg;
+        feedbackAndAttempts.style.backgroundColor = "#c57777";
+        feedbackAndAttempts.style.color = "white";
+
+        canDraw = false;
+        failRetryBtn.style.display = attemptsLeft > 0 ? "inline-block" : "none";
+        submitBtn.style.display = "none";
         continueBtn.style.display = "none";
-        retryBtn.style.display = "inline-block";
     }
 }
+
 
 // ----------------------------------------------------------
 // 5. Reset / retry
 // ----------------------------------------------------------
-failRetryBtn.addEventListener('click', () => loadChallenge()); // retry same challenge
+failRetryBtn.addEventListener('click', () => resetCaptcha(false)); // retry same challenge
 retryBtn.addEventListener('click', () => resetCaptcha(false));          // fetch new challenge
 
 function resetCaptcha(newChallenge = false) {
@@ -200,6 +188,7 @@ function resetCaptcha(newChallenge = false) {
 
     // Reset buttons
     submitBtn.style.display = attemptsLeft > 0 ? "inline-block" : "none";
+    failRetryBtn.innerText = "Retry"; 
     failRetryBtn.style.display = "none";
     retryBtn.style.display = "inline-block";
     continueBtn.style.display = "none";
