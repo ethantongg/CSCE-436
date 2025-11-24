@@ -30,7 +30,8 @@ app.get('/challenge', (req, res) => {
     challengeId: challenge.id,
     rotation: challenge.rotation,
     scale: challenge.scale,
-    expiresAt: challenge.expiresAt
+    expiresAt: challenge.expiresAt,
+    file: '/assets/heart.png'
   });
 });
 
@@ -46,22 +47,20 @@ app.post('/verify', (req, res) => {
       return res.status(400).json({ success: false, message: 'Path missing or too short' });
     }
 
-    // Normalize x,y by canvas if given. Keep timestamps intact (t)
-    const normalized = userPath.map(p => {
-      if (canvas && canvas.width && canvas.height && typeof p.x === 'number' && typeof p.y === 'number') {
-        return { x: p.x / canvas.width, y: p.y / canvas.height, t: p.t };
-      }
-      return { x: p.x, y: p.y, t: p.t };
-    });
-
     // Read template from file and pass to verifyTrace (verifyTrace will apply the challenge's rotation/scale)
     const template = JSON.parse(fs.readFileSync(TEMPLATE_PATH, 'utf8'));
+    const normalized = normalizeToTemplate(userPath, template, canvas);
+    const xs = normalized.map(p => p.x);
+    const ys = normalized.map(p => p.y);
+    console.log("Normalized bounds:", Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys));
+
+
 
     const result = verifyTrace(normalized, template, challengeId);
 
     // consume challenge if verification succeeded OR to prevent replay attempts for either fail/pass attempt
     // For stronger security, you might only consume on success; here we consume on any attempt to avoid replays.
-    consumeChallenge(challengeId);
+    //consumeChallenge(challengeId);
 
     return res.json(result);
   } catch (err) {
@@ -72,3 +71,25 @@ app.post('/verify', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Motion CAPTCHA backend listening on ${PORT}`));
+
+
+function normalizeToTemplate(userPath, template, canvas) {
+    const tmplXs = template.map(p => p.x);
+    const tmplYs = template.map(p => p.y);
+    const minX = Math.min(...tmplXs);
+    const maxX = Math.max(...tmplXs);
+    const minY = Math.min(...tmplYs);
+    const maxY = Math.max(...tmplYs);
+
+    const width = maxX - minX || 1;
+    const height = maxY - minY || 1;
+
+    // Map user path from canvas pixels to template 0–1 units
+    return userPath.map(p => ({
+        x: (p.x / canvas.width) * width + minX,
+        y: (p.y / canvas.height) * height + minY,
+        t: p.t
+    }));
+}
+
+
