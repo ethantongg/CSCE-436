@@ -3,14 +3,16 @@ const ctx = canvas.getContext('2d');
 
 const feedbackAndAttempts = document.getElementById('feedbackAndAttempts');
 const continueBtn = document.getElementById('continueBtn');
-const failRetryBtn = document.getElementById('failRetryBtn'); // retry-on-failure
+const failRetryBtn = document.getElementById('failRetryBtn');
 const retryBtn = document.getElementById('retryBtn');
 
 let drawing = false;
 let path = [];
 let outlineEdges = [];
 
-// Attempt tracking
+// Backend configuration
+const API_BASE_URL = 'http://localhost:3000/api';
+let sessionId = null;
 let maxAttempts = 5;
 let attemptsLeft = maxAttempts;
 
@@ -20,6 +22,63 @@ const congratsModal = new bootstrap.Modal(congratsModalEl, {});
 continueBtn.addEventListener('click', () => {
     congratsModal.show();
 });
+
+// ----------------------------------------------------------
+// Backend API Functions
+// ----------------------------------------------------------
+async function initCaptchaSession() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/captcha/init`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            sessionId = data.sessionId;
+            attemptsLeft = data.attemptsLeft;
+            console.log('Session initialized:', sessionId);
+        } else {
+            console.error('Failed to initialize session');
+        }
+    } catch (error) {
+        console.error('Error initializing session:', error);
+    }
+}
+
+async function verifyTraceWithBackend(traceData, outlineType) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/captcha/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessionId,
+                traceData,
+                outlineType
+            })
+        });
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error verifying trace:', error);
+        return { success: false, error: 'Network error' };
+    }
+}
+
+async function resetSessionOnBackend() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/captcha/reset/${sessionId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        if (data.success) {
+            attemptsLeft = data.attemptsLeft;
+        }
+    } catch (error) {
+        console.error('Error resetting session:', error);
+    }
+}
 
 // ----------------------------------------------------------
 // 1. Load outline + extract edges
@@ -71,8 +130,8 @@ function extractEdges() {
 // ----------------------------------------------------------
 // 2. Input handling
 // ----------------------------------------------------------
-let canDraw = true;        // flag to enable/disable tracing
-let isNewStroke = true;    // tracks if we need to moveTo start of stroke
+let canDraw = true;
+let isNewStroke = true;
 
 canvas.addEventListener('mousedown', startDraw);
 canvas.addEventListener('mouseup', endDraw);
@@ -169,23 +228,23 @@ function scoreCoverage() {
 }
 
 // ----------------------------------------------------------
-// 4. Verification logic with attempts
+// 4. Verification logic with backend
 // ----------------------------------------------------------
 const submitBtn = document.getElementById('submitBtn');
 
-submitBtn.addEventListener('click', () => {
+submitBtn.addEventListener('click', async () => {
     if (path.length < 40) {
-        feedbackAndAttempts.innerText = "Trace too short — try to trace the shape fully before submitting.";
+        feedbackAndAttempts.innerText = "Trace too short – try to trace the shape fully before submitting.";
         feedbackAndAttempts.style.backgroundColor = "#c57777";
         feedbackAndAttempts.style.color = "white";
         return;
     }
-    checkTrace();
+    await checkTrace();
 });
 
-function checkTrace() {
+async function checkTrace() {
     if (path.length < 40) {
-        feedbackAndAttempts.innerText = "Trace too short — keep going.";
+        feedbackAndAttempts.innerText = "Trace too short – keep going.";
         feedbackAndAttempts.style.backgroundColor = "red";
         feedbackAndAttempts.style.color = "white";
         return;
@@ -194,13 +253,21 @@ function checkTrace() {
     const accuracy = scoreTraceAccuracy();
     const jitter = scoreMovementNoise();
     const coverage = scoreCoverage();
-    console.log("Accuracy:", accuracy, "Jitter:", jitter, "Coverage:", coverage);
-
-    if (coverage < 0.70) { handleFailure("You traced too little of the shape."); return; }
-    if (accuracy < 4 && jitter < 0.0015) { handleFailure("Movement too perfect — suspicious."); return; }
-
-    if (accuracy < 25 && coverage >= 0.70) {
-        feedbackAndAttempts.innerText = "Success!";
+    
+    const traceData = {
+        path,
+        accuracy,
+        jitter,
+        coverage
+    };
+    
+    console.log("Sending to backend - Accuracy:", accuracy, "Jitter:", jitter, "Coverage:", coverage);
+    
+    // Send to backend for verification
+    const result = await verifyTraceWithBackend(traceData, currentOutline.name);
+    
+    if (result.verified) {
+        feedbackAndAttempts.innerText = "Success! Verified by server.";
         feedbackAndAttempts.style.backgroundColor = "#aab18b";
         feedbackAndAttempts.style.color = "white";
 
@@ -210,16 +277,16 @@ function checkTrace() {
 
         canDraw = false;
         retryBtn.style.display = "none";
-        return;
+    } else {
+        attemptsLeft = result.attemptsLeft;
+        handleFailure(result.reason || "Trace did not match the shape. Try again.");
     }
-
-    handleFailure("Trace did not match the shape. Try again.");
 }
 
 function handleFailure(message) {
-    attemptsLeft--;
-
-    feedbackAndAttempts.innerText = attemptsLeft > 0 ? `${message} | Attempts left: ${attemptsLeft}` : "No attempts left. Test failed.";
+    feedbackAndAttempts.innerText = attemptsLeft > 0 
+        ? `${message} | Attempts left: ${attemptsLeft}` 
+        : "No attempts left. Test failed.";
     feedbackAndAttempts.style.backgroundColor = "#c57777";
     feedbackAndAttempts.style.color = "white";
 
@@ -242,7 +309,7 @@ function handleFailure(message) {
 // ----------------------------------------------------------
 // 5. Shared reset logic
 // ----------------------------------------------------------
-function resetCaptcha() {
+async function resetCaptcha() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     path = [];
     drawOutline();
@@ -254,37 +321,33 @@ function resetCaptcha() {
     feedbackAndAttempts.innerText = '';
     feedbackAndAttempts.style.backgroundColor = '';
     feedbackAndAttempts.style.color = '';
+    
+    // Reset on backend
+    await resetSessionOnBackend();
 }
 
-// Top-right retry button
-retryBtn.addEventListener('click', () => {
-    resetCaptcha();
+retryBtn.addEventListener('click', async () => {
+    await resetCaptcha();
     retryBtn.style.display = "inline-block";
     failRetryBtn.style.display = "none";
+    submitBtn.style.display = "inline-block";
 });
 
-// Fail-retry button
-failRetryBtn.addEventListener('click', () => {
-    resetCaptcha();
+failRetryBtn.addEventListener('click', async () => {
+    await resetCaptcha();
     failRetryBtn.style.display = "none";
     submitBtn.style.display = "inline-block";
 });
 
 // ----------------------------------------------------------
-// Accessibility Button
+// Accessibility & Screen Reader
 // ----------------------------------------------------------
 const accessibilityBtn = document.getElementById('accessibilityBtn');
-let enlarged = false;
-const outlineCanvas = document.getElementById('outlineCanvas');
-
 accessibilityBtn.addEventListener('click', () => {
     strokeWidth = 5;
     strokeColor = '#3e3e3e';
 });
 
-// ----------------------------------------------------------
-// Screen Reader Button
-// ----------------------------------------------------------
 const screenReaderBtn = document.getElementById('screenReaderBtn');
 screenReaderBtn.addEventListener('click', () => {
     const msg = "Trace the shape shown on the screen with your mouse or touch. Accuracy and coverage matter.";
@@ -305,3 +368,8 @@ const closeModal = document.querySelector('.closeModal');
 infoBtn.addEventListener('click', () => { infoModal.style.display = 'block'; });
 closeModal.addEventListener('click', () => { infoModal.style.display = 'none'; });
 window.addEventListener('click', e => { if (e.target === infoModal) infoModal.style.display = 'none'; });
+
+// ----------------------------------------------------------
+// Initialize session on page load
+// ----------------------------------------------------------
+initCaptchaSession();
