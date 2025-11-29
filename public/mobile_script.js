@@ -9,6 +9,7 @@ const retryBtn = document.getElementById('retryBtn');
 let drawing = false;
 let path = [];
 let outlineEdges = [];
+let canDraw = true;
 
 // Backend configuration
 const API_BASE_URL = 'http://localhost:3000/api';
@@ -86,10 +87,8 @@ async function resetSessionOnBackend() {
 const assetList = [
     { file: 'assets/heart.png', name: 'Heart' },
     { file: 'assets/diamond.png', name: 'Diamond' },
-    { file: 'assets/leaf.png', name: 'Leaf' },
     { file: 'assets/smile.png', name: 'Smile' },
     { file: 'assets/triangle.png', name: 'Triangle' },
-    { file: 'assets/home.png', name: 'Home' },
     { file: 'assets/crescent-moon.png', name: 'Crescent Moon' }
 ];
 
@@ -128,59 +127,91 @@ function extractEdges() {
 }
 
 // ----------------------------------------------------------
-// 2. Input handling
+// 2. Mobile-optimized Input Handling
 // ----------------------------------------------------------
-let canDraw = true;
+
+// Prevent scrolling/bounce on touch
+document.body.style.overflow = "hidden";
+document.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
+
+const traceCanvas = canvas;      // naming clarity
+const traceCtx = traceCanvas.getContext("2d");
+
 let isNewStroke = true;
 
-canvas.addEventListener('mousedown', startDraw);
-canvas.addEventListener('mouseup', endDraw);
-canvas.addEventListener('mousemove', draw);
-canvas.addEventListener('touchstart', startDraw);
-canvas.addEventListener('touchend', endDraw);
-canvas.addEventListener('touchmove', draw);
+let strokeWidth = 8;            // ← larger mobile stroke
+let strokeColor = "white";
 
-let strokeWidth = 4;
-let strokeColor = 'white';
+// Normalize pointer coordinates
+function getPoint(e) {
+    const rect = traceCanvas.getBoundingClientRect();
 
-function startDraw() {
-    if (!canDraw) return;
-    drawing = true;
-    isNewStroke = true;
+    if (e.touches && e.touches.length > 0) {
+        return {
+            x: e.touches[0].clientX - rect.left,
+            y: e.touches[0].clientY - rect.top
+        };
+    }
+
+    return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+    };
 }
 
-function endDraw() {
+function startDraw(e) {
+    if (!canDraw) return;
+    e.preventDefault();
+
+    drawing = true;
+    isNewStroke = true;
+
+    const { x, y } = getPoint(e);
+    path.push({ x, y, time: performance.now() });
+}
+
+function endDraw(e) {
+    if (!drawing) return;
+    e.preventDefault();
+
     drawing = false;
 }
 
 function draw(e) {
     if (!drawing) return;
+    e.preventDefault();
 
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.clientX ?? e.touches[0].clientX;
-    const clientY = e.clientY ?? e.touches[0].clientY;
+    const { x, y } = getPoint(e);
+    const now = performance.now();
 
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    const time = performance.now();
+    traceCtx.lineWidth = strokeWidth;
+    traceCtx.lineCap = "round";
+    traceCtx.strokeStyle = strokeColor;
 
-    ctx.lineWidth = strokeWidth;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = strokeColor;
+    traceCtx.beginPath();
 
-    ctx.beginPath();
     if (!isNewStroke && path.length > 0) {
-        ctx.moveTo(path[path.length - 1].x, path[path.length - 1].y);
+        traceCtx.moveTo(path[path.length - 1].x, path[path.length - 1].y);
     } else {
-        ctx.moveTo(x, y);
+        traceCtx.moveTo(x, y);
         isNewStroke = false;
     }
 
-    ctx.lineTo(x, y);
-    ctx.stroke();
+    traceCtx.lineTo(x, y);
+    traceCtx.stroke();
 
-    path.push({ x, y, time });
+    path.push({ x, y, time: now });
 }
+
+// Desktop pointer
+traceCanvas.addEventListener("mousedown", startDraw);
+traceCanvas.addEventListener("mouseup", endDraw);
+traceCanvas.addEventListener("mousemove", draw);
+
+// Mobile touch
+traceCanvas.addEventListener("touchstart", startDraw, { passive: false });
+traceCanvas.addEventListener("touchend", endDraw, { passive: false });
+traceCanvas.addEventListener("touchmove", draw, { passive: false });
 
 // ----------------------------------------------------------
 // 3. Scoring functions
