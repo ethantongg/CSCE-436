@@ -345,7 +345,7 @@ failRetryBtn.addEventListener('click', async () => {
 const accessibilityBtn = document.getElementById('accessibilityBtn');
 accessibilityBtn.addEventListener('click', () => {
     strokeWidth = 5;
-    strokeColor = '#3e3e3e';
+    strokeColor = '#87677b';
 });
 
 const screenReaderBtn = document.getElementById('screenReaderBtn');

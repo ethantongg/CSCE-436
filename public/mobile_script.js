@@ -146,18 +146,26 @@ let strokeColor = "white";
 function getPoint(e) {
     const rect = traceCanvas.getBoundingClientRect();
 
+    // Scale factors between CSS size and internal canvas resolution
+    const scaleX = traceCanvas.width / rect.width;
+    const scaleY = traceCanvas.height / rect.height;
+
+    let clientX, clientY;
+
     if (e.touches && e.touches.length > 0) {
-        return {
-            x: e.touches[0].clientX - rect.left,
-            y: e.touches[0].clientY - rect.top
-        };
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+    } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
     }
 
     return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
     };
 }
+
 
 function startDraw(e) {
     if (!canDraw) return;
@@ -375,8 +383,8 @@ failRetryBtn.addEventListener('click', async () => {
 // ----------------------------------------------------------
 const accessibilityBtn = document.getElementById('accessibilityBtn');
 accessibilityBtn.addEventListener('click', () => {
-    strokeWidth = 5;
-    strokeColor = '#3e3e3e';
+    strokeWidth = 10;
+    strokeColor = '#87677b';
 });
 
 const screenReaderBtn = document.getElementById('screenReaderBtn');

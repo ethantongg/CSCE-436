@@ -25,7 +25,7 @@ document.getElementById("backDesktop").addEventListener("click", () => {
 });
 </script>
 
-<div id="captchaContainer" class="bg-dark card text-white p-4" style="max-width:500px; width:90%;">
+<div id="captchaContainer" class="bg-dark card text-white p-4" style="max-width:320px; width:90%;">
 
     <!-- Top Row -->
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -43,8 +43,8 @@ document.getElementById("backDesktop").addEventListener("click", () => {
 
     <!-- Canvas Container -->
     <div id="canvasWrapper" class="bg-secondary p-2 text-center mb-3">
-        <p id="canvasPrompt" class="mb-2">Trace the image outlined below of a <b id="imageName">Heart</b></p>
-        <div class="position-relative" style="height:400px;">
+        <p id="canvasPrompt" class="mb-2 p-2">Trace the image outlined below of a <b id="imageName">Heart</b></p>
+        <div id="canvasResponsiveWrapper">
             <canvas id="outlineCanvas" width="400" height="400" class="position-absolute top-0 start-0 w-100 h-100"></canvas>
             <canvas id="traceCanvas" width="400" height="400" class="position-absolute top-0 start-0 w-100 h-100"></canvas>
         </div>
@@ -53,12 +53,12 @@ document.getElementById("backDesktop").addEventListener("click", () => {
     <!-- Feedback & Controls -->
     <div class="d-flex justify-content-between align-items-center">
         <div>
-            <p id="feedbackAndAttempts" class="m-0 me-5 p-2"></p>
+            <p id="feedbackAndAttempts" class="m-0 me-3 p-2 fs-7"></p>
         </div>
         <div>
-            <button id="continueBtn" class="btn btn-success" style="display:none;">CONTINUE</button>
-            <button id="failRetryBtn" class="btn btn-warning" style="display:none;"></button>
-            <button id="submitBtn" class="btn btn-primary">SUBMIT</button>
+            <button id="continueBtn" class="btn btn-success btn-lg" style="display:none;">CONTINUE</button>
+            <button id="failRetryBtn" class="btn btn-warning btn-lg" style="display:none;"></button>
+            <button id="submitBtn" class="btn btn-primary btn-lg">SUBMIT</button>
         </div>
     </div>
 
